@@ -1,2 +1,3 @@
-# project-calcite
- A markdown to unicode text transformer for LinkedIn.
+# Calcite
+
+A markdown to unicode text translator.
