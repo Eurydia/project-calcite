@@ -1,73 +1,86 @@
 import { ThemeProvider } from "@emotion/react";
-import { Editor } from "@monaco-editor/react";
+import { Editor, useMonaco } from "@monaco-editor/react";
+import { ContentCopyRounded } from "@mui/icons-material";
 import {
-  BorderColorRounded,
-  FormatQuoteRounded,
-} from "@mui/icons-material";
-import { TabContext, TabList, TabPanel } from "@mui/lab";
-import {
-  Box,
+  Button,
+  Container,
   createTheme,
   CssBaseline,
+  Grid2,
   responsiveFontSizes,
-  Tab,
   Toolbar,
 } from "@mui/material";
-import { FC, useEffect, useState } from "react";
-import { unified } from "unified";
+import { FC, useEffect, useRef, useState } from "react";
+import Markdown from "react-markdown";
+import { toast, ToastContainer } from "react-toastify";
+import rehypeSanitize from "rehype-sanitize";
+import remarkGfm from "remark-gfm";
+import { nodeEmoji } from "~services/emoji";
+import { remarkEmoji } from "~services/unified/remark";
+
 let theme = createTheme({
   typography: { htmlFontSize: 20 },
 });
 theme = responsiveFontSizes(theme);
 
-import remarkGfm from "remark-gfm";
-import remarkParse from "remark-parse";
-import remarkStringify from "remark-stringify";
-
-const parser = unified()
-  .use(remarkParse)
-  .use(remarkGfm)
-  .use(remarkStringify);
-
 export const App: FC = () => {
-  const [tab, setTab] = useState<0 | 1>(0);
+  const mdContenteRef = useRef<HTMLDivElement | null>(null);
   const [content, setContent] = useState<
     string | undefined
   >(undefined);
+
+  const monaco = useMonaco();
   useEffect(() => {
-    console.debug(String(parser.processSync(content)));
-  }, [content]);
+    if (monaco === null) {
+      return;
+    }
+    monaco.languages.registerCompletionItemProvider(
+      "markdown",
+      {
+        triggerCharacters: [":"],
+        provideCompletionItems: (model, position) => {
+          const word = model.getWordUntilPosition(position);
+          const range = {
+            startLineNumber: position.lineNumber,
+            endLineNumber: position.lineNumber,
+            startColumn: word.startColumn,
+            endColumn: word.endColumn,
+          };
+          return {
+            suggestions: nodeEmoji
+              .search("")
+              .map((emoji) => {
+                return {
+                  documentation: `:${emoji.name}:`,
+                  insertText: `${emoji.name}:`,
+                  label: `${emoji.name} (${emoji.emoji})`,
+                  kind: monaco.languages.CompletionItemKind
+                    .Keyword,
+                  range,
+                };
+              }),
+          };
+        },
+      }
+    );
+  }, [monaco]);
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Box>
-        <TabContext value={tab}>
-          <Toolbar>
-            <TabList onChange={(_, value) => setTab(value)}>
-              <Tab
-                icon={<BorderColorRounded />}
-                iconPosition="start"
-                label="Editor"
-                value={0}
-              />
-              <Tab
-                icon={<FormatQuoteRounded />}
-                iconPosition="start"
-                label="Result"
-                value={1}
-              />
-            </TabList>
-          </Toolbar>
-          <TabPanel
-            value={0}
-            sx={{
-              height: "70vh",
-            }}
-          >
+
+      <Container maxWidth="lg">
+        <Grid2
+          container
+          spacing={2}
+          height="100vh"
+        >
+          <Grid2 size={{ xs: 12, md: 6 }}>
             <Editor
               value={content}
-              onChange={(value) => setContent(value)}
+              width="100%"
               height="100%"
+              onChange={(value) => setContent(value)}
               language="markdown"
               options={{
                 fontSize: theme.typography.htmlFontSize,
@@ -76,10 +89,49 @@ export const App: FC = () => {
                 minimap: { enabled: false },
               }}
             />
-          </TabPanel>
-          <TabPanel value={1}></TabPanel>
-        </TabContext>
-      </Box>
+          </Grid2>
+          <Grid2 size={{ xs: 12, md: 6 }}>
+            <Toolbar
+              variant="dense"
+              disableGutters
+            >
+              <Button
+                disableRipple
+                disableElevation
+                variant="contained"
+                startIcon={<ContentCopyRounded />}
+                onClick={() => {
+                  if (mdContenteRef.current === null) {
+                    return;
+                  }
+                  const textContent =
+                    mdContenteRef.current.textContent;
+                  if (textContent === null) {
+                    return;
+                  }
+                  navigator.clipboard.writeText(
+                    textContent
+                  );
+                  toast("Coped to clipboard", {
+                    type: "success",
+                  });
+                }}
+              >
+                Copy
+              </Button>
+            </Toolbar>
+            <div ref={mdContenteRef}>
+              <Markdown
+                remarkPlugins={[remarkGfm, remarkEmoji]}
+                rehypePlugins={[rehypeSanitize]}
+              >
+                {content}
+              </Markdown>
+            </div>
+          </Grid2>
+        </Grid2>
+      </Container>
+      <ToastContainer />
     </ThemeProvider>
   );
 };
