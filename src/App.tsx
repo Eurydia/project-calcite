@@ -2,6 +2,7 @@ import { ThemeProvider } from "@emotion/react";
 import { Editor, useMonaco } from "@monaco-editor/react";
 import { ContentCopyRounded } from "@mui/icons-material";
 import {
+  Box,
   Button,
   createTheme,
   CssBaseline,
@@ -15,6 +16,7 @@ import { toast, ToastContainer } from "react-toastify";
 import { unified } from "unified";
 import { visitParents } from "unist-util-visit-parents";
 import { nodeEmoji } from "~services/emoji";
+import { rehypeSanitize } from "~services/unified/rehype";
 import {
   remarkEmoji,
   remarkGfm,
@@ -22,19 +24,51 @@ import {
   remarkStringify,
 } from "~services/unified/remark";
 
-const toStrongUnicode = (char: string): string => {
+const toBoldUnicode = (char: string): string => {
   if (char.length !== 1) {
     return char;
   }
+
   const charCode = char.codePointAt(0)!;
   if ("a" <= char && char <= "z") {
     return String.fromCodePoint(119737 + charCode);
-  } else if ("A" <= char && char <= "Z") {
+  }
+  if ("A" <= char && char <= "Z") {
     return String.fromCodePoint(119743 + charCode);
-  } else if ("0" <= char && char <= "9") {
+  }
+  if ("0" <= char && char <= "9") {
     return String.fromCodePoint(55301 + charCode);
   }
+  return char;
+};
 
+const toBoldItalicUnicode = (char: string): string => {
+  if (char.length !== 1) {
+    return char;
+  }
+
+  const charCode = char.codePointAt(0)!;
+  if ("a" <= char && char <= "z") {
+    return String.fromCodePoint(120309 + charCode);
+  }
+  if ("A" <= char && char <= "Z") {
+    return String.fromCodePoint(120315 + charCode);
+  }
+  return char;
+};
+
+const toItalicUnicode = (char: string): string => {
+  if (char.length !== 1) {
+    return char;
+  }
+
+  const charCode = char.codePointAt(0)!;
+  if ("a" <= char && char <= "z") {
+    return String.fromCodePoint(119789 + charCode);
+  }
+  if ("A" <= char && char <= "Z") {
+    return String.fromCodePoint(119795 + charCode);
+  }
   return char;
 };
 
@@ -43,18 +77,16 @@ const remarkBoldUnicode = () => {
     visitParents(tree, (node, ancestors) => {
       switch (node.type) {
         case "strong": {
+          const unicodeConverter = ancestors.some(
+            (ancestor) => ancestor.type === "emphasis"
+          )
+            ? toBoldItalicUnicode
+            : toBoldUnicode;
           node.children = node.children.map((child) => {
             if (child.type === "text") {
               const nextValue = child.value
                 .split("")
-                .map((char) => {
-                  const optionStrong =
-                    toStrongUnicode(char);
-                  if (optionStrong.ok) {
-                    return optionStrong.data;
-                  }
-                  return char;
-                })
+                .map((char) => unicodeConverter(char))
                 .join("");
               child.value = nextValue;
             }
@@ -62,8 +94,24 @@ const remarkBoldUnicode = () => {
           });
           break;
         }
-        case "emphasis":
+        case "emphasis": {
+          const unicodeConverter = ancestors.some(
+            (ancestor) => ancestor.type === "strong"
+          )
+            ? toBoldItalicUnicode
+            : toItalicUnicode;
+          node.children = node.children.map((child) => {
+            if (child.type === "text") {
+              const nextValue = child.value
+                .split("")
+                .map((char) => unicodeConverter(char))
+                .join("");
+              child.value = nextValue;
+            }
+            return child;
+          });
           break;
+        }
         case "delete":
           break;
         case "code":
@@ -176,16 +224,18 @@ export const App: FC = () => {
           />
         </Grid2>
         <Grid2 size={{ xs: 12, md: 6 }}>
-          <Markdown
-            remarkPlugins={[
-              remarkGfm,
-              remarkEmoji,
-              remarkBoldUnicode,
-            ]}
-            // rehypePlugins={[rehypeSanitize]}
-          >
-            {content}
-          </Markdown>
+          <Box>
+            <Markdown
+              remarkPlugins={[
+                remarkGfm,
+                remarkEmoji,
+                remarkBoldUnicode,
+              ]}
+              rehypePlugins={[rehypeSanitize]}
+            >
+              {content}
+            </Markdown>
+          </Box>
         </Grid2>
       </Grid2>
       <ToastContainer />
