@@ -10,7 +10,7 @@ import {
   Toolbar,
 } from "@mui/material";
 import { Root } from "mdast";
-import { FC, useEffect, useState } from "react";
+import { FC, useEffect, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import { toast, ToastContainer } from "react-toastify";
 import { unified } from "unified";
@@ -138,6 +138,8 @@ export const App: FC = () => {
     string | undefined
   >(undefined);
 
+  const contentRef = useRef<HTMLDivElement | null>(null);
+
   const monaco = useMonaco();
   useEffect(() => {
     if (monaco === null) {
@@ -188,11 +190,16 @@ export const App: FC = () => {
           variant="contained"
           startIcon={<ContentCopyRounded />}
           onClick={() => {
-            if (content === undefined) {
+            if (
+              content === undefined ||
+              contentRef === null ||
+              contentRef.current === null ||
+              contentRef.current.textContent === null
+            ) {
               return;
             }
             navigator.clipboard.writeText(
-              parser.processSync(content).toString()
+              contentRef.current.textContent
             );
             toast.success("Copied to clipboard", {
               type: "success",
@@ -224,7 +231,7 @@ export const App: FC = () => {
           />
         </Grid2>
         <Grid2 size={{ xs: 12, md: 6 }}>
-          <Box>
+          <Box ref={contentRef}>
             <Markdown
               remarkPlugins={[
                 remarkGfm,
