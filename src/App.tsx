@@ -22,44 +22,20 @@ import {
   remarkStringify,
 } from "~services/unified/remark";
 
-type OptionOk<T> = { ok: true; data: T };
-type OptionNone = { ok: false };
-type Option<T> = OptionNone | OptionOk<T>;
-
-const optionOf = <T,>(data: T): OptionOk<T> => {
-  return { ok: true, data };
-};
-
-const optionNone = (): OptionNone => {
-  return { ok: false };
-};
-
-const toStrongUnicode = (char: string): Option<string> => {
-  if (char.length === 0) {
-    return optionNone();
+const toStrongUnicode = (char: string): string => {
+  if (char.length !== 1) {
+    return char;
   }
-  const _char = char.charAt(0);
-  const charCode = _char.codePointAt(0);
-  if (charCode === undefined) {
-    return optionNone();
-  }
-  if ("a" <= _char && _char <= "z") {
-    return optionOf(
-      String.fromCodePoint(119737 + charCode)
-    );
+  const charCode = char.codePointAt(0)!;
+  if ("a" <= char && char <= "z") {
+    return String.fromCodePoint(119737 + charCode);
+  } else if ("A" <= char && char <= "Z") {
+    return String.fromCodePoint(119743 + charCode);
+  } else if ("0" <= char && char <= "9") {
+    return String.fromCodePoint(55301 + charCode);
   }
 
-  if ("A" <= _char && _char <= "Z") {
-    return optionOf(
-      String.fromCodePoint(119743 + charCode)
-    );
-  }
-
-  if ("0" <= _char && _char <= "9") {
-    return optionOf(String.fromCodePoint(55301 + charCode));
-  }
-
-  return optionNone();
+  return char;
 };
 
 const remarkBoldUnicode = () => {
@@ -216,4 +192,3 @@ export const App: FC = () => {
     </ThemeProvider>
   );
 };
-
