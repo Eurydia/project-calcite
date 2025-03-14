@@ -13,15 +13,12 @@ import { Root } from "mdast";
 import { FC, useEffect, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import { toast, ToastContainer } from "react-toastify";
-import { unified } from "unified";
 import { visitParents } from "unist-util-visit-parents";
 import { nodeEmoji } from "~services/emoji";
 import { rehypeSanitize } from "~services/unified/rehype";
 import {
   remarkEmoji,
   remarkGfm,
-  remarkParse,
-  remarkStringify,
 } from "~services/unified/remark";
 
 const toBoldUnicode = (char: string): string => {
@@ -72,7 +69,22 @@ const toItalicUnicode = (char: string): string => {
   return char;
 };
 
-const remarkBoldUnicode = () => {
+const toMonospaceUnicode = (char: string): string => {
+  if (char.length !== 1) {
+    return char;
+  }
+
+  const charCode = char.codePointAt(0)!;
+  if ("a" <= char && char <= "z") {
+    return String.fromCodePoint(120361 + charCode);
+  }
+  if ("A" <= char && char <= "Z") {
+    return String.fromCodePoint(120367 + charCode);
+  }
+  return char;
+};
+
+const remarkConvertUnicode = () => {
   return (tree: Root) => {
     visitParents(tree, (node, ancestors) => {
       switch (node.type) {
@@ -112,22 +124,19 @@ const remarkBoldUnicode = () => {
           });
           break;
         }
-        case "delete":
-          break;
         case "code":
-        case "inlineCode":
+        case "inlineCode": {
+          const convertedValue = node.value
+            .split("")
+            .map((char) => toMonospaceUnicode(char))
+            .join("");
+          node.value = convertedValue;
           break;
-        default:
-          break;
+        }
       }
     });
   };
 };
-
-const parser = unified()
-  .use(remarkParse)
-  .use(remarkBoldUnicode)
-  .use(remarkStringify);
 
 const theme = createTheme({
   typography: { htmlFontSize: 20 },
@@ -236,7 +245,7 @@ export const App: FC = () => {
               remarkPlugins={[
                 remarkGfm,
                 remarkEmoji,
-                remarkBoldUnicode,
+                remarkConvertUnicode,
               ]}
               rehypePlugins={[rehypeSanitize]}
             >
