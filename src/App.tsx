@@ -3,28 +3,113 @@ import { Editor, useMonaco } from "@monaco-editor/react";
 import { ContentCopyRounded } from "@mui/icons-material";
 import {
   Button,
-  Container,
   createTheme,
   CssBaseline,
   Grid2,
-  responsiveFontSizes,
   Toolbar,
 } from "@mui/material";
-import { FC, useEffect, useRef, useState } from "react";
+import { Root } from "mdast";
+import { FC, useEffect, useState } from "react";
 import Markdown from "react-markdown";
 import { toast, ToastContainer } from "react-toastify";
-import rehypeSanitize from "rehype-sanitize";
-import remarkGfm from "remark-gfm";
+import { unified } from "unified";
+import { visitParents } from "unist-util-visit-parents";
 import { nodeEmoji } from "~services/emoji";
-import { remarkEmoji } from "~services/unified/remark";
+import {
+  remarkEmoji,
+  remarkGfm,
+  remarkParse,
+  remarkStringify,
+} from "~services/unified/remark";
 
-let theme = createTheme({
+type OptionOk<T> = { ok: true; data: T };
+type OptionNone = { ok: false };
+type Option<T> = OptionNone | OptionOk<T>;
+
+const optionOf = <T,>(data: T): OptionOk<T> => {
+  return { ok: true, data };
+};
+
+const optionNone = (): OptionNone => {
+  return { ok: false };
+};
+
+const toStrongUnicode = (char: string): Option<string> => {
+  if (char.length === 0) {
+    return optionNone();
+  }
+  const _char = char.charAt(0);
+  const charCode = _char.codePointAt(0);
+  if (charCode === undefined) {
+    return optionNone();
+  }
+  if ("a" <= _char && _char <= "z") {
+    return optionOf(
+      String.fromCodePoint(119737 + charCode)
+    );
+  }
+
+  if ("A" <= _char && _char <= "Z") {
+    return optionOf(
+      String.fromCodePoint(119743 + charCode)
+    );
+  }
+
+  if ("0" <= _char && _char <= "9") {
+    return optionOf(String.fromCodePoint(55301 + charCode));
+  }
+
+  return optionNone();
+};
+
+const remarkBoldUnicode = () => {
+  return (tree: Root) => {
+    visitParents(tree, (node, ancestors) => {
+      switch (node.type) {
+        case "strong": {
+          node.children = node.children.map((child) => {
+            if (child.type === "text") {
+              const nextValue = child.value
+                .split("")
+                .map((char) => {
+                  const optionStrong =
+                    toStrongUnicode(char);
+                  if (optionStrong.ok) {
+                    return optionStrong.data;
+                  }
+                  return char;
+                })
+                .join("");
+              child.value = nextValue;
+            }
+            return child;
+          });
+          break;
+        }
+        case "emphasis":
+          break;
+        case "delete":
+          break;
+        case "code":
+        case "inlineCode":
+          break;
+        default:
+          break;
+      }
+    });
+  };
+};
+
+const parser = unified()
+  .use(remarkParse)
+  .use(remarkBoldUnicode)
+  .use(remarkStringify);
+
+const theme = createTheme({
   typography: { htmlFontSize: 20 },
 });
-theme = responsiveFontSizes(theme);
 
 export const App: FC = () => {
-  const mdContenteRef = useRef<HTMLDivElement | null>(null);
   const [content, setContent] = useState<
     string | undefined
   >(undefined);
@@ -34,10 +119,10 @@ export const App: FC = () => {
     if (monaco === null) {
       return;
     }
+
     monaco.languages.registerCompletionItemProvider(
       "markdown",
       {
-        triggerCharacters: [":"],
         provideCompletionItems: (model, position) => {
           const word = model.getWordUntilPosition(position);
           const range = {
@@ -51,8 +136,8 @@ export const App: FC = () => {
               .search("")
               .map((emoji) => {
                 return {
-                  documentation: `:${emoji.name}:`,
-                  insertText: `${emoji.name}:`,
+                  documentation: emoji.name,
+                  insertText: `:${emoji.name}:`,
                   label: `${emoji.name} (${emoji.emoji})`,
                   kind: monaco.languages.CompletionItemKind
                     .Keyword,
@@ -68,69 +153,65 @@ export const App: FC = () => {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-
-      <Container maxWidth="lg">
-        <Grid2
-          container
-          spacing={2}
-          height="100vh"
+      <Toolbar
+        variant="dense"
+        disableGutters
+      >
+        <Button
+          disableRipple
+          disableElevation
+          disabled={content === undefined}
+          variant="contained"
+          startIcon={<ContentCopyRounded />}
+          onClick={() => {
+            if (content === undefined) {
+              return;
+            }
+            navigator.clipboard.writeText(
+              parser.processSync(content).toString()
+            );
+            toast.success("Copied to clipboard", {
+              type: "success",
+            });
+          }}
         >
-          <Grid2 size={{ xs: 12, md: 6 }}>
-            <Editor
-              value={content}
-              width="100%"
-              height="100%"
-              onChange={(value) => setContent(value)}
-              language="markdown"
-              options={{
-                fontSize: theme.typography.htmlFontSize,
-                wordWrap: "bounded",
-                scrollBeyondLastLine: false,
-                minimap: { enabled: false },
-              }}
-            />
-          </Grid2>
-          <Grid2 size={{ xs: 12, md: 6 }}>
-            <Toolbar
-              variant="dense"
-              disableGutters
-            >
-              <Button
-                disableRipple
-                disableElevation
-                variant="contained"
-                startIcon={<ContentCopyRounded />}
-                onClick={() => {
-                  if (mdContenteRef.current === null) {
-                    return;
-                  }
-                  const textContent =
-                    mdContenteRef.current.textContent;
-                  if (textContent === null) {
-                    return;
-                  }
-                  navigator.clipboard.writeText(
-                    textContent
-                  );
-                  toast("Coped to clipboard", {
-                    type: "success",
-                  });
-                }}
-              >
-                Copy
-              </Button>
-            </Toolbar>
-            <div ref={mdContenteRef}>
-              <Markdown
-                remarkPlugins={[remarkGfm, remarkEmoji]}
-                rehypePlugins={[rehypeSanitize]}
-              >
-                {content}
-              </Markdown>
-            </div>
-          </Grid2>
+          Copy
+        </Button>
+      </Toolbar>
+      <Grid2
+        container
+        spacing={2}
+        minHeight={700}
+        height="100%"
+      >
+        <Grid2 size={{ xs: 12, md: 6 }}>
+          <Editor
+            value={content}
+            width="100%"
+            height="100%"
+            onChange={(value) => setContent(value)}
+            language="markdown"
+            options={{
+              fontSize: theme.typography.htmlFontSize,
+              wordWrap: "bounded",
+              scrollBeyondLastLine: false,
+              minimap: { enabled: false },
+            }}
+          />
         </Grid2>
-      </Container>
+        <Grid2 size={{ xs: 12, md: 6 }}>
+          <Markdown
+            remarkPlugins={[
+              remarkGfm,
+              remarkEmoji,
+              remarkBoldUnicode,
+            ]}
+            // rehypePlugins={[rehypeSanitize]}
+          >
+            {content}
+          </Markdown>
+        </Grid2>
+      </Grid2>
       <ToastContainer />
     </ThemeProvider>
   );
