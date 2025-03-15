@@ -28,69 +28,6 @@ import {
   remarkGfm,
 } from "~services/unified/remark";
 
-const toBoldUnicode = (char: string): string => {
-  if (char.length !== 1) {
-    return char;
-  }
-
-  const charCode = char.codePointAt(0)!;
-  if ("a" <= char && char <= "z") {
-    return String.fromCodePoint(119737 + charCode);
-  }
-  if ("A" <= char && char <= "Z") {
-    return String.fromCodePoint(119743 + charCode);
-  }
-  if ("0" <= char && char <= "9") {
-    return String.fromCodePoint(55301 + charCode);
-  }
-  return char;
-};
-
-const toBoldItalicUnicode = (char: string): string => {
-  if (char.length !== 1) {
-    return char;
-  }
-
-  const charCode = char.codePointAt(0)!;
-  if ("a" <= char && char <= "z") {
-    return String.fromCodePoint(120309 + charCode);
-  }
-  if ("A" <= char && char <= "Z") {
-    return String.fromCodePoint(120315 + charCode);
-  }
-  return char;
-};
-
-const toItalicUnicode = (char: string): string => {
-  if (char.length !== 1) {
-    return char;
-  }
-
-  const charCode = char.codePointAt(0)!;
-  if ("a" <= char && char <= "z") {
-    return String.fromCodePoint(119789 + charCode);
-  }
-  if ("A" <= char && char <= "Z") {
-    return String.fromCodePoint(119795 + charCode);
-  }
-  return char;
-};
-
-const toMonospaceUnicode = (char: string): string => {
-  if (char.length !== 1) {
-    return char;
-  }
-
-  const charCode = char.codePointAt(0)!;
-  if ("a" <= char && char <= "z") {
-    return String.fromCodePoint(120361 + charCode);
-  }
-  if ("A" <= char && char <= "Z") {
-    return String.fromCodePoint(120367 + charCode);
-  }
-  return char;
-};
-
 const remarkConvertUnicode = () => {
   return (tree: Root) => {
     visitParents(tree, (node, ancestors) => {
