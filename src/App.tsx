@@ -10,6 +10,7 @@ import {
   Button,
   createTheme,
   CssBaseline,
+  Divider,
   Grid2,
   Toolbar,
   Typography,
@@ -241,6 +242,7 @@ export const App: FC = () => {
               Clear
             </Button>
           </Toolbar>
+          <Divider />
           <Editor
             value={content}
             width="100%"
@@ -266,8 +268,11 @@ export const App: FC = () => {
           <Toolbar
             disableGutters
             variant="dense"
-            sx={{ justifyContent: "flex-end" }}
+            sx={{ justifyContent: "space-between" }}
           >
+            <Typography fontWeight={900}>
+              Preview
+            </Typography>
             <Button
               variant="contained"
               startIcon={<ContentCopyRounded />}
@@ -289,13 +294,64 @@ export const App: FC = () => {
               Copy
             </Button>
           </Toolbar>
-          <Box ref={contentRef}>
+          <Divider />
+          <Box
+            ref={contentRef}
+            padding={4}
+          >
             <Markdown
+              skipHtml
               components={{
                 p: (props) => {
                   const { children } = props;
                   return (
                     <Typography
+                      component="span"
+                      sx={{
+                        textWrap: "balance",
+                        wordBreak: "break-all",
+                        width: "100%",
+                      }}
+                    >
+                      {children}
+                    </Typography>
+                  );
+                },
+                strong: (props) => {
+                  const { children } = props;
+                  return (
+                    <Typography
+                      component="span"
+                      sx={{
+                        textWrap: "balance",
+                        wordBreak: "break-all",
+                        width: "100%",
+                      }}
+                    >
+                      {children}
+                    </Typography>
+                  );
+                },
+                em: (props) => {
+                  const { children } = props;
+                  return (
+                    <Typography
+                      component="span"
+                      sx={{
+                        textWrap: "balance",
+                        wordBreak: "break-all",
+                        width: "100%",
+                      }}
+                    >
+                      {children}
+                    </Typography>
+                  );
+                },
+                code: (props) => {
+                  const { children } = props;
+                  return (
+                    <Typography
+                      component="span"
                       sx={{
                         textWrap: "balance",
                         wordBreak: "break-all",
