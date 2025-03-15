@@ -1,6 +1,10 @@
 import { ThemeProvider } from "@emotion/react";
 import { Editor, useMonaco } from "@monaco-editor/react";
-import { ContentCopyRounded } from "@mui/icons-material";
+import {
+  ContentCopyRounded,
+  ContentPasteRounded,
+  DeleteRounded,
+} from "@mui/icons-material";
 import {
   Box,
   Button,
@@ -8,7 +12,9 @@ import {
   CssBaseline,
   Grid2,
   Toolbar,
+  Typography,
 } from "@mui/material";
+import { amber, indigo } from "@mui/material/colors";
 import { Root } from "mdast";
 import { FC, useEffect, useRef, useState } from "react";
 import Markdown from "react-markdown";
@@ -139,7 +145,10 @@ const remarkConvertUnicode = () => {
 };
 
 const theme = createTheme({
-  typography: { htmlFontSize: 20 },
+  palette: {
+    primary: indigo,
+    secondary: amber,
+  },
 });
 
 export const App: FC = () => {
@@ -187,44 +196,51 @@ export const App: FC = () => {
 
   return (
     <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <Toolbar
-        variant="dense"
-        disableGutters
-      >
-        <Button
-          disableRipple
-          disableElevation
-          disabled={content === undefined}
-          variant="contained"
-          startIcon={<ContentCopyRounded />}
-          onClick={() => {
-            if (
-              content === undefined ||
-              contentRef === null ||
-              contentRef.current === null ||
-              contentRef.current.textContent === null
-            ) {
-              return;
-            }
-            navigator.clipboard.writeText(
-              contentRef.current.textContent
-            );
-            toast.success("Copied to clipboard", {
-              type: "success",
-            });
-          }}
-        >
-          Copy
-        </Button>
-      </Toolbar>
+      <CssBaseline enableColorScheme />
       <Grid2
         container
         spacing={2}
-        minHeight={700}
-        height="100%"
+        padding={2}
+        width="100%"
+        height="90vh"
       >
-        <Grid2 size={{ xs: 12, md: 6 }}>
+        <Grid2
+          size={{ xs: 12, md: 6 }}
+          sx={{
+            height: "100%",
+            gap: 2,
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
+          <Toolbar
+            variant="dense"
+            disableGutters
+            sx={{ gap: 1 }}
+          >
+            <Button
+              variant="contained"
+              startIcon={<ContentPasteRounded />}
+              onClick={async () => {
+                const content =
+                  await navigator.clipboard.readText();
+                setContent(content);
+                toast.success("Pasted from clipboard");
+              }}
+            >
+              Paste
+            </Button>
+            <Button
+              variant="contained"
+              startIcon={<DeleteRounded />}
+              onClick={() => {
+                setContent("");
+                toast.success("Content cleared");
+              }}
+            >
+              Clear
+            </Button>
+          </Toolbar>
           <Editor
             value={content}
             width="100%"
@@ -232,16 +248,65 @@ export const App: FC = () => {
             onChange={(value) => setContent(value)}
             language="markdown"
             options={{
-              fontSize: theme.typography.htmlFontSize,
+              fontSize: 20,
               wordWrap: "bounded",
               scrollBeyondLastLine: false,
               minimap: { enabled: false },
             }}
           />
         </Grid2>
-        <Grid2 size={{ xs: 12, md: 6 }}>
+        <Grid2
+          size={{ xs: 12, md: 6 }}
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 2,
+          }}
+        >
+          <Toolbar
+            disableGutters
+            variant="dense"
+            sx={{ justifyContent: "flex-end" }}
+          >
+            <Button
+              variant="contained"
+              startIcon={<ContentCopyRounded />}
+              onClick={() => {
+                if (
+                  content === undefined ||
+                  contentRef === null ||
+                  contentRef.current === null ||
+                  contentRef.current.textContent === null
+                ) {
+                  return;
+                }
+                navigator.clipboard.writeText(
+                  contentRef.current.textContent
+                );
+                toast.success("Copied to clipboard");
+              }}
+            >
+              Copy
+            </Button>
+          </Toolbar>
           <Box ref={contentRef}>
             <Markdown
+              components={{
+                p: (props) => {
+                  const { children } = props;
+                  return (
+                    <Typography
+                      sx={{
+                        textWrap: "balance",
+                        wordBreak: "break-all",
+                        width: "100%",
+                      }}
+                    >
+                      {children}
+                    </Typography>
+                  );
+                },
+              }}
               remarkPlugins={[
                 remarkGfm,
                 remarkEmoji,
