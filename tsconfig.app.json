@@ -9,6 +9,7 @@
     "baseUrl": "./src",
     "paths": {
       "~services/*": ["./services/*"],
+      "~hooks/*": ["./hooks/*"],
       "~components/*": ["./components/*"]
     },
 

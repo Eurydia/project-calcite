@@ -1,5 +1,5 @@
 import { ThemeProvider } from "@emotion/react";
-import { Editor, useMonaco } from "@monaco-editor/react";
+import { Editor } from "@monaco-editor/react";
 import {
   ContentCopyRounded,
   ContentPasteRounded,
@@ -13,13 +13,12 @@ import {
   Divider,
   Grid2,
   Toolbar,
-  Typography,
 } from "@mui/material";
 import { amber, indigo } from "@mui/material/colors";
-import { FC, useEffect, useRef, useState } from "react";
+import { FC, useCallback, useRef, useState } from "react";
 import { toast, ToastContainer } from "react-toastify";
 import { StyledMarkdown } from "~components/StyledMarkdown";
-import { emoji } from "~services/emoji";
+import { useMonacoInit } from "~hooks/useMonacoInit";
 
 const theme = createTheme({
   palette: {
@@ -35,39 +34,25 @@ export const App: FC = () => {
 
   const contentRef = useRef<HTMLDivElement | null>(null);
 
-  const monaco = useMonaco();
-  useEffect(() => {
-    if (monaco === null) {
+  useMonacoInit();
+
+  const handleCopyContent = useCallback(async () => {
+    if (
+      contentRef === null ||
+      contentRef.current === null ||
+      contentRef.current.textContent === null
+    ) {
       return;
     }
-
-    monaco.languages.registerCompletionItemProvider(
-      "markdown",
-      {
-        provideCompletionItems: (model, position) => {
-          const word = model.getWordUntilPosition(position);
-          const range = {
-            startLineNumber: position.lineNumber,
-            endLineNumber: position.lineNumber,
-            startColumn: word.startColumn,
-            endColumn: word.endColumn,
-          };
-          return {
-            suggestions: emoji.search("").map((emoji) => {
-              return {
-                documentation: emoji.name,
-                insertText: `:${emoji.name}:`,
-                label: `${emoji.name} (${emoji.emoji})`,
-                kind: monaco.languages.CompletionItemKind
-                  .Keyword,
-                range,
-              };
-            }),
-          };
+    navigator.clipboard
+      .writeText(contentRef.current.textContent)
+      .then(
+        () => {
+          toast.success("Copied to clipboard");
         },
-      }
-    );
-  }, [monaco]);
+        () => toast.error("Failed to copy to clipboard")
+      );
+  }, []);
 
   return (
     <ThemeProvider theme={theme}>
@@ -108,10 +93,7 @@ export const App: FC = () => {
             <Button
               variant="contained"
               startIcon={<DeleteRounded />}
-              onClick={() => {
-                setContent("");
-                toast.success("Content cleared");
-              }}
+              onClick={() => setContent("")}
             >
               Clear
             </Button>
@@ -142,28 +124,12 @@ export const App: FC = () => {
           <Toolbar
             disableGutters
             variant="dense"
-            sx={{ justifyContent: "space-between" }}
+            sx={{ justifyContent: "flex-end" }}
           >
-            <Typography fontWeight={900}>
-              Preview
-            </Typography>
             <Button
               variant="contained"
               startIcon={<ContentCopyRounded />}
-              onClick={() => {
-                if (
-                  content === undefined ||
-                  contentRef === null ||
-                  contentRef.current === null ||
-                  contentRef.current.textContent === null
-                ) {
-                  return;
-                }
-                navigator.clipboard.writeText(
-                  contentRef.current.textContent
-                );
-                toast.success("Copied to clipboard");
-              }}
+              onClick={handleCopyContent}
             >
               Copy
             </Button>
@@ -177,7 +143,13 @@ export const App: FC = () => {
           </Box>
         </Grid2>
       </Grid2>
-      <ToastContainer />
+      <ToastContainer
+        autoClose={2000}
+        closeOnClick
+        limit={3}
+        pauseOnFocusLoss={false}
+        position="top-center"
+      />
     </ThemeProvider>
   );
 };
