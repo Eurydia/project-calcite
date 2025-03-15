@@ -8,7 +8,9 @@
     "skipLibCheck": true,
     "baseUrl": "./src",
     "paths": {
-      "~services/*": ["./services/*"]
+      "~services/*": ["./services/*"],
+      "~hooks/*": ["./hooks/*"],
+      "~components/*": ["./components/*"]
     },
 
     /* Bundler mode */

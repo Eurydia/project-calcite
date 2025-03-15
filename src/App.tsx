@@ -1,5 +1,5 @@
 import { ThemeProvider } from "@emotion/react";
-import { Editor, useMonaco } from "@monaco-editor/react";
+import { Editor } from "@monaco-editor/react";
 import {
   ContentCopyRounded,
   ContentPasteRounded,
@@ -13,137 +13,12 @@ import {
   Divider,
   Grid2,
   Toolbar,
-  Typography,
 } from "@mui/material";
 import { amber, indigo } from "@mui/material/colors";
-import { Root } from "mdast";
-import { FC, useEffect, useRef, useState } from "react";
-import Markdown from "react-markdown";
+import { FC, useCallback, useRef, useState } from "react";
 import { toast, ToastContainer } from "react-toastify";
-import { visitParents } from "unist-util-visit-parents";
-import { nodeEmoji } from "~services/emoji";
-import { rehypeSanitize } from "~services/unified/rehype";
-import {
-  remarkEmoji,
-  remarkGfm,
-} from "~services/unified/remark";
-
-const toBoldUnicode = (char: string): string => {
-  if (char.length !== 1) {
-    return char;
-  }
-
-  const charCode = char.codePointAt(0)!;
-  if ("a" <= char && char <= "z") {
-    return String.fromCodePoint(119737 + charCode);
-  }
-  if ("A" <= char && char <= "Z") {
-    return String.fromCodePoint(119743 + charCode);
-  }
-  if ("0" <= char && char <= "9") {
-    return String.fromCodePoint(55301 + charCode);
-  }
-  return char;
-};
-
-const toBoldItalicUnicode = (char: string): string => {
-  if (char.length !== 1) {
-    return char;
-  }
-
-  const charCode = char.codePointAt(0)!;
-  if ("a" <= char && char <= "z") {
-    return String.fromCodePoint(120309 + charCode);
-  }
-  if ("A" <= char && char <= "Z") {
-    return String.fromCodePoint(120315 + charCode);
-  }
-  return char;
-};
-
-const toItalicUnicode = (char: string): string => {
-  if (char.length !== 1) {
-    return char;
-  }
-
-  const charCode = char.codePointAt(0)!;
-  if ("a" <= char && char <= "z") {
-    return String.fromCodePoint(119789 + charCode);
-  }
-  if ("A" <= char && char <= "Z") {
-    return String.fromCodePoint(119795 + charCode);
-  }
-  return char;
-};
-
-const toMonospaceUnicode = (char: string): string => {
-  if (char.length !== 1) {
-    return char;
-  }
-
-  const charCode = char.codePointAt(0)!;
-  if ("a" <= char && char <= "z") {
-    return String.fromCodePoint(120361 + charCode);
-  }
-  if ("A" <= char && char <= "Z") {
-    return String.fromCodePoint(120367 + charCode);
-  }
-  return char;
-};
-
-const remarkConvertUnicode = () => {
-  return (tree: Root) => {
-    visitParents(tree, (node, ancestors) => {
-      switch (node.type) {
-        case "strong": {
-          const unicodeConverter = ancestors.some(
-            (ancestor) => ancestor.type === "emphasis"
-          )
-            ? toBoldItalicUnicode
-            : toBoldUnicode;
-          node.children = node.children.map((child) => {
-            if (child.type === "text") {
-              const nextValue = child.value
-                .split("")
-                .map((char) => unicodeConverter(char))
-                .join("");
-              child.value = nextValue;
-            }
-            return child;
-          });
-          break;
-        }
-        case "emphasis": {
-          const unicodeConverter = ancestors.some(
-            (ancestor) => ancestor.type === "strong"
-          )
-            ? toBoldItalicUnicode
-            : toItalicUnicode;
-          node.children = node.children.map((child) => {
-            if (child.type === "text") {
-              const nextValue = child.value
-                .split("")
-                .map((char) => unicodeConverter(char))
-                .join("");
-              child.value = nextValue;
-            }
-            return child;
-          });
-          break;
-        }
-        case "code":
-        case "inlineCode": {
-          const convertedValue = node.value
-            .split("")
-            .map((char) => toMonospaceUnicode(char))
-            .join("");
-          node.value = convertedValue;
-          break;
-        }
-      }
-    });
-  };
-};
+import { StyledMarkdown } from "~components/StyledMarkdown";
+import { useMonacoInit } from "~hooks/useMonacoInit";
 
 const theme = createTheme({
   palette: {
@@ -159,41 +34,25 @@ export const App: FC = () => {
 
   const contentRef = useRef<HTMLDivElement | null>(null);
 
-  const monaco = useMonaco();
-  useEffect(() => {
-    if (monaco === null) {
+  useMonacoInit();
+
+  const handleCopyContent = useCallback(async () => {
+    if (
+      contentRef === null ||
+      contentRef.current === null ||
+      contentRef.current.textContent === null
+    ) {
       return;
     }
-
-    monaco.languages.registerCompletionItemProvider(
-      "markdown",
-      {
-        provideCompletionItems: (model, position) => {
-          const word = model.getWordUntilPosition(position);
-          const range = {
-            startLineNumber: position.lineNumber,
-            endLineNumber: position.lineNumber,
-            startColumn: word.startColumn,
-            endColumn: word.endColumn,
-          };
-          return {
-            suggestions: nodeEmoji
-              .search("")
-              .map((emoji) => {
-                return {
-                  documentation: emoji.name,
-                  insertText: `:${emoji.name}:`,
-                  label: `${emoji.name} (${emoji.emoji})`,
-                  kind: monaco.languages.CompletionItemKind
-                    .Keyword,
-                  range,
-                };
-              }),
-          };
+    navigator.clipboard
+      .writeText(contentRef.current.textContent)
+      .then(
+        () => {
+          toast.success("Copied to clipboard");
         },
-      }
-    );
-  }, [monaco]);
+        () => toast.error("Failed to copy to clipboard")
+      );
+  }, []);
 
   return (
     <ThemeProvider theme={theme}>
@@ -234,10 +93,7 @@ export const App: FC = () => {
             <Button
               variant="contained"
               startIcon={<DeleteRounded />}
-              onClick={() => {
-                setContent("");
-                toast.success("Content cleared");
-              }}
+              onClick={() => setContent("")}
             >
               Clear
             </Button>
@@ -268,28 +124,12 @@ export const App: FC = () => {
           <Toolbar
             disableGutters
             variant="dense"
-            sx={{ justifyContent: "space-between" }}
+            sx={{ justifyContent: "flex-end" }}
           >
-            <Typography fontWeight={900}>
-              Preview
-            </Typography>
             <Button
               variant="contained"
               startIcon={<ContentCopyRounded />}
-              onClick={() => {
-                if (
-                  content === undefined ||
-                  contentRef === null ||
-                  contentRef.current === null ||
-                  contentRef.current.textContent === null
-                ) {
-                  return;
-                }
-                navigator.clipboard.writeText(
-                  contentRef.current.textContent
-                );
-                toast.success("Copied to clipboard");
-              }}
+              onClick={handleCopyContent}
             >
               Copy
             </Button>
@@ -299,83 +139,17 @@ export const App: FC = () => {
             ref={contentRef}
             padding={4}
           >
-            <Markdown
-              skipHtml
-              components={{
-                p: (props) => {
-                  const { children } = props;
-                  return (
-                    <Typography
-                      component="span"
-                      sx={{
-                        textWrap: "balance",
-                        wordBreak: "break-all",
-                        width: "100%",
-                      }}
-                    >
-                      {children}
-                    </Typography>
-                  );
-                },
-                strong: (props) => {
-                  const { children } = props;
-                  return (
-                    <Typography
-                      component="span"
-                      sx={{
-                        textWrap: "balance",
-                        wordBreak: "break-all",
-                        width: "100%",
-                      }}
-                    >
-                      {children}
-                    </Typography>
-                  );
-                },
-                em: (props) => {
-                  const { children } = props;
-                  return (
-                    <Typography
-                      component="span"
-                      sx={{
-                        textWrap: "balance",
-                        wordBreak: "break-all",
-                        width: "100%",
-                      }}
-                    >
-                      {children}
-                    </Typography>
-                  );
-                },
-                code: (props) => {
-                  const { children } = props;
-                  return (
-                    <Typography
-                      component="span"
-                      sx={{
-                        textWrap: "balance",
-                        wordBreak: "break-all",
-                        width: "100%",
-                      }}
-                    >
-                      {children}
-                    </Typography>
-                  );
-                },
-              }}
-              remarkPlugins={[
-                remarkGfm,
-                remarkEmoji,
-                remarkConvertUnicode,
-              ]}
-              rehypePlugins={[rehypeSanitize]}
-            >
-              {content}
-            </Markdown>
+            <StyledMarkdown content={content} />
           </Box>
         </Grid2>
       </Grid2>
-      <ToastContainer />
+      <ToastContainer
+        autoClose={2000}
+        closeOnClick
+        limit={3}
+        pauseOnFocusLoss={false}
+        position="top-center"
+      />
     </ThemeProvider>
   );
 };

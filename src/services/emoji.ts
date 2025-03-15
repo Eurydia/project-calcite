@@ -1,2 +1,1 @@
-import * as _emoji from "node-emoji";
-export const nodeEmoji = _emoji;
+export * as emoji from "node-emoji";
