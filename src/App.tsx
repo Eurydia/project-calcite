@@ -16,71 +16,10 @@ import {
   Typography,
 } from "@mui/material";
 import { amber, indigo } from "@mui/material/colors";
-import { Root } from "mdast";
 import { FC, useEffect, useRef, useState } from "react";
-import Markdown from "react-markdown";
 import { toast, ToastContainer } from "react-toastify";
-import { visitParents } from "unist-util-visit-parents";
-import { nodeEmoji } from "~services/emoji";
-import { rehypeSanitize } from "~services/unified/rehype";
-import {
-  remarkEmoji,
-  remarkGfm,
-} from "~services/unified/remark";
-
-const remarkConvertUnicode = () => {
-  return (tree: Root) => {
-    visitParents(tree, (node, ancestors) => {
-      switch (node.type) {
-        case "strong": {
-          const unicodeConverter = ancestors.some(
-            (ancestor) => ancestor.type === "emphasis"
-          )
-            ? toBoldItalicUnicode
-            : toBoldUnicode;
-          node.children = node.children.map((child) => {
-            if (child.type === "text") {
-              const nextValue = child.value
-                .split("")
-                .map((char) => unicodeConverter(char))
-                .join("");
-              child.value = nextValue;
-            }
-            return child;
-          });
-          break;
-        }
-        case "emphasis": {
-          const unicodeConverter = ancestors.some(
-            (ancestor) => ancestor.type === "strong"
-          )
-            ? toBoldItalicUnicode
-            : toItalicUnicode;
-          node.children = node.children.map((child) => {
-            if (child.type === "text") {
-              const nextValue = child.value
-                .split("")
-                .map((char) => unicodeConverter(char))
-                .join("");
-              child.value = nextValue;
-            }
-            return child;
-          });
-          break;
-        }
-        case "code":
-        case "inlineCode": {
-          const convertedValue = node.value
-            .split("")
-            .map((char) => toMonospaceUnicode(char))
-            .join("");
-          node.value = convertedValue;
-          break;
-        }
-      }
-    });
-  };
-};
+import { StyledMarkdown } from "~components/StyledMarkdown";
+import { emoji } from "~services/emoji";
 
 const theme = createTheme({
   palette: {
@@ -114,18 +53,16 @@ export const App: FC = () => {
             endColumn: word.endColumn,
           };
           return {
-            suggestions: nodeEmoji
-              .search("")
-              .map((emoji) => {
-                return {
-                  documentation: emoji.name,
-                  insertText: `:${emoji.name}:`,
-                  label: `${emoji.name} (${emoji.emoji})`,
-                  kind: monaco.languages.CompletionItemKind
-                    .Keyword,
-                  range,
-                };
-              }),
+            suggestions: emoji.search("").map((emoji) => {
+              return {
+                documentation: emoji.name,
+                insertText: `:${emoji.name}:`,
+                label: `${emoji.name} (${emoji.emoji})`,
+                kind: monaco.languages.CompletionItemKind
+                  .Keyword,
+                range,
+              };
+            }),
           };
         },
       }
@@ -236,79 +173,7 @@ export const App: FC = () => {
             ref={contentRef}
             padding={4}
           >
-            <Markdown
-              skipHtml
-              components={{
-                p: (props) => {
-                  const { children } = props;
-                  return (
-                    <Typography
-                      component="span"
-                      sx={{
-                        textWrap: "balance",
-                        wordBreak: "break-all",
-                        width: "100%",
-                      }}
-                    >
-                      {children}
-                    </Typography>
-                  );
-                },
-                strong: (props) => {
-                  const { children } = props;
-                  return (
-                    <Typography
-                      component="span"
-                      sx={{
-                        textWrap: "balance",
-                        wordBreak: "break-all",
-                        width: "100%",
-                      }}
-                    >
-                      {children}
-                    </Typography>
-                  );
-                },
-                em: (props) => {
-                  const { children } = props;
-                  return (
-                    <Typography
-                      component="span"
-                      sx={{
-                        textWrap: "balance",
-                        wordBreak: "break-all",
-                        width: "100%",
-                      }}
-                    >
-                      {children}
-                    </Typography>
-                  );
-                },
-                code: (props) => {
-                  const { children } = props;
-                  return (
-                    <Typography
-                      component="span"
-                      sx={{
-                        textWrap: "balance",
-                        wordBreak: "break-all",
-                        width: "100%",
-                      }}
-                    >
-                      {children}
-                    </Typography>
-                  );
-                },
-              }}
-              remarkPlugins={[
-                remarkGfm,
-                remarkEmoji,
-                remarkConvertUnicode,
-              ]}
-              rehypePlugins={[rehypeSanitize]}
-            >
-              {content}
-            </Markdown>
+            <StyledMarkdown content={content} />
           </Box>
         </Grid2>
       </Grid2>
